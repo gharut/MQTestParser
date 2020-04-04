@@ -1,0 +1,32 @@
+{% extends "layout.twig" %}
+
+{% block title %}Upload{% endblock %}
+{% block scripts %}
+    <script src="/assets/js/upload.js"></script>
+{% endblock %}
+
+{% block content %}
+
+    <div class="container h-100">
+        <div class="row align-items-center h-100">
+            <div class="col-12 mx-auto">
+                <div class="jumbotron">
+                    <section class="jumbotron text-center">
+                        <div class="container">
+                            <h1 class="jumbotron-heading">Upload CSV</h1>
+                            <p class="lead text-muted">Uploaded file must contain header with required fields:.
+                                <br><b>Name</b>, <b>Email</b>, <b>Division</b>, <b>Age</b>, <b>Timezone</b>(number range [-12, 12])
+                            </p>
+                            <div class="alert-danger" id="error" role="alert"></div>
+                            <div class="file btn btn-lg btn-primary upload-button">
+                                <span>Upload</span>
+                                <input type="file" name="file" id="file" accept=".csv"/>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>new UploadClass('file')</script>
+{% endblock %}
