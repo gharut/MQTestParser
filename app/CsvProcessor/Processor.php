@@ -75,11 +75,12 @@ class Processor
 
     private function generateResult()
     {
+        $avgScore = array_sum($this->matches) / count($this->matches);
 
         arsort($this->matches);
         $pairs = [];
         foreach ($this->matches as $ids => $score) {
-            if ($score < $this->thresholdScore) {
+            if ($score < $avgScore) {
                 break;
             }
 
