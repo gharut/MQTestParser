@@ -81,7 +81,7 @@ class Processor
         }
     }
 
-    private function createPairs()
+    private function generateResult()
     {
         $avgScore = array_sum($this->matches) / count($this->matches);
 
@@ -104,7 +104,8 @@ class Processor
             $exclude[] = $objects[0];
             $exclude[] = $objects[1];
         }
-        $this->thresholdScore = $totalScore / $count;
+
+        return ['pairs'=> $this->pairs, 'avgScore' => round($totalScore / $count)];
     }
 
     private function getPairs(): \Generator
@@ -112,20 +113,6 @@ class Processor
         foreach ($this->pairs as $pair) {
             yield $pair;
         }
-    }
-
-    private function generateResult(): array
-    {
-        $this->createPairs();
-        $pairs = [];
-        foreach ($this->getPairs() as $pair) {
-            if ($pair['score'] < $this->thresholdScore) {
-                break;
-            }
-            $pairs[] = $pair;
-        }
-
-        return $pairs;
     }
 
     private function getCsvRow()
@@ -152,7 +139,7 @@ class Processor
         $firstLine = fgets($f);
         fclose($f);
 
-        $this->headers = str_getcsv(trim($firstLine), ','); //parse to array
+        $this->headers = str_getcsv(trim($firstLine), ',');
 
         $this->idColumn = $this->validateColumn($this->idColumn);
     }

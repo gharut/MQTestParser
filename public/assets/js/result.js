@@ -24,7 +24,8 @@ class ResultClass {
 
             if(response.status === true) {
                 resultTable.html('');
-                $.each(response.data, (_, info) => {
+                $('#fileInfo').html('Result for file '+response.file+'. Averege score is:' + response.data.avgScore+'%')
+                $.each(response.data.pairs, (_, info) => {
                     let row = $('<tr></tr>');
                     $.each(info.objects, (_, obj) => {
                         row.append(`<td>${obj}</td>`)
