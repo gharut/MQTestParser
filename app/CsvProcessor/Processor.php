@@ -14,6 +14,7 @@ class Processor
     private array $idMap;
     private array $headers;
     private string $file;
+    private array $pairs;
 
     public function __invoke($filePath, string $idColumn, int $thresholdScore, BaseMatcher ...$matchers): array
     {
@@ -73,22 +74,55 @@ class Processor
         }
     }
 
-    private function generateResult()
+    private function getMatches(): \Generator
+    {
+        foreach ($this->matches as $ids => $value) {
+            yield [explode('_', $ids), $value];
+        }
+    }
+
+    private function createPairs()
     {
         $avgScore = array_sum($this->matches) / count($this->matches);
 
         arsort($this->matches);
-        $pairs = [];
-        foreach ($this->matches as $ids => $score) {
-            if ($score < $avgScore) {
-                break;
+        $totalScore = 0;
+        $count = 0;
+        $exclude = [];
+        foreach ($this->getMatches() as $match) {
+            list($objects, $score) = $match;
+            if (array_intersect($exclude, $objects)) {
+                continue;
             }
 
-            list($id1, $id2) = explode('_', $ids);
-            $pairs[] = [
-                'objects' => [$this->idMap[$id1], $this->idMap[$id2]],
+            $totalScore += $score;
+            $count++;
+            $this->pairs[] = [
+                'objects' => [$this->idMap[$objects[0]], $this->idMap[$objects[1]]],
                 'score' => $score
             ];
+            $exclude[] = $objects[0];
+            $exclude[] = $objects[1];
+        }
+        $this->thresholdScore = $totalScore / $count;
+    }
+
+    private function getPairs(): \Generator
+    {
+        foreach ($this->pairs as $pair) {
+            yield $pair;
+        }
+    }
+
+    private function generateResult(): array
+    {
+        $this->createPairs();
+        $pairs = [];
+        foreach ($this->getPairs() as $pair) {
+            if ($pair['score'] < $this->thresholdScore) {
+                break;
+            }
+            $pairs[] = $pair;
         }
 
         return $pairs;

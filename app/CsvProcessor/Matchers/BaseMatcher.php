@@ -39,15 +39,24 @@ abstract class BaseMatcher implements MatcherInterface
     protected function processValue(int $id, string $value)
     {
         if ($this->map[$value]) {
-            foreach ($this->map[$value] as $pair) {
+            foreach ($this->getValuesMap($value) as $pair) {
                 $this->createPair($id, $pair);
             }
         }
     }
 
-    public function getMatches(): array
+    protected function getValuesMap($value): \Generator
     {
-        return $this->matches;
+        foreach ($this->map[$value] as $pair) {
+            yield $pair;
+        }
+    }
+
+    public function getMatches(): \Generator
+    {
+        foreach($this->matches as $key => $value) {
+            yield $key => $value;
+        }
     }
 
     public function getScore(): int
