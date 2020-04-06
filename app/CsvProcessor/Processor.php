@@ -87,7 +87,7 @@ class Processor
 
         arsort($this->matches);
         $totalScore = 0;
-        $count = 0;
+        $totalCount = 0;
         $exclude = [];
         foreach ($this->getMatches() as $match) {
             list($objects, $score) = $match;
@@ -96,16 +96,36 @@ class Processor
             }
 
             $totalScore += $score;
-            $count++;
+            $totalCount++;
             $this->pairs[] = [
                 'objects' => [$this->idMap[$objects[0]], $this->idMap[$objects[1]]],
                 'score' => $score
             ];
+            unset($this->idMap[$objects[0]], $this->idMap[$objects[1]]);
             $exclude[] = $objects[0];
             $exclude[] = $objects[1];
         }
 
-        return ['pairs'=> $this->pairs, 'avgScore' => round($totalScore / $count)];
+        /**
+         * Zero matches
+         */
+        $zeroMatchPair = [];
+        $zeroMatchCounter = 0;
+        foreach ($this->idMap as $name) {
+            $zeroMatchCounter++;
+            $totalCount++;
+            $zeroMatchPair[] = $name;
+            if($zeroMatchCounter == 2) {
+                $this->pairs[] = [
+                    'objects' => $zeroMatchPair,
+                    'score' => 0
+                ];
+                $zeroMatchPair = [];
+                $zeroMatchCounter = 0;
+            }
+        }
+
+        return ['pairs'=> $this->pairs, 'avgScore' => round($totalScore / $totalCount)];
     }
 
     private function getPairs(): \Generator
