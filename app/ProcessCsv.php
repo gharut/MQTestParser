@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\CsvProcessor\Conditions\LocationCondition;
 use App\CsvProcessor\Processor;
 use App\CsvProcessor\Matchers\SimpleMatcher;
 use App\CsvProcessor\Matchers\AgeMatcher;
@@ -19,18 +20,20 @@ class ProcessCsv
             $this->file = $file;
             $this->writeResult(['status' => 'processing', 'file' => basename($file)]);
             $result = ['status' => true];
-            $processor = new Processor;
-            $data = $processor(
-                $file,
-                'Name',
-                65,
+            $processor = new Processor($file, 'Name');
+            $processor->addMatchers(
                 new SimpleMatcher('Division', 30),
                 new SimpleMatcher('Timezone', 40),
                 new AgeMatcher('Age', 30),
             );
+
+            $processor->addConditions(
+                new LocationCondition()
+            );
+            $data = $processor->process();
         } catch (\Throwable $e) {
             $result['status'] = false;
-            $data = $e->getMessage();
+            $data =  $e->getMessage().$e->getFile().$e->getLine();
         }
         $result['data'] = $data;
         $result['file'] = basename($file);

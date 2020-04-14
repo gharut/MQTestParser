@@ -2,32 +2,77 @@
 
 namespace App\CsvProcessor;
 
+use App\CsvProcessor\Conditions\ConditionInterface;
 use App\CsvProcessor\Matchers\BaseMatcher;
 use App\CsvProcessor\Matchers\MatcherInterface;
 
 class Processor
 {
+
+    public static array $conditions;
     private array $matchers;
     private array $matches = [];
-    private int $thresholdScore;
     private string $idColumn;
     private array $idMap;
     private array $headers;
     private string $file;
     private array $pairs;
 
-    public function __invoke($filePath, string $idColumn, int $thresholdScore, BaseMatcher ...$matchers): array
+    public function __construct($filePath, string $idColumn)
     {
         try {
             $this->file = $filePath;
-            $this->thresholdScore = $thresholdScore;
             $this->idColumn = $idColumn;
             $this->validateFile();
-            foreach ($matchers as $matcher) {
-                $this->registerMatchers($matcher);
-            }
-            $this->process();
+        } catch (\Exception $e) {
+            echo $e->getMessage();
+        }
+    }
 
+    public function addMatchers(BaseMatcher ...$matchers)
+    {
+        foreach ($matchers as $matcher) {
+            $this->registerMatchers($matcher);
+        }
+    }
+
+    public function addConditions(ConditionInterface ...$conditions)
+    {
+        foreach ($conditions as $condition) {
+            $this->registerCondition($condition);
+        }
+    }
+
+    private function registerCondition(ConditionInterface $condition)
+    {
+        $conditionColumns = [];
+        foreach ($condition->getColumns() as $column) {
+            $columnId = $this->validateColumn($column);
+            $conditionColumns[$columnId] = $column;
+        }
+
+        Processor::$conditions[] = ['processor' => $condition, 'columns' => $conditionColumns];
+    }
+
+
+    public function process(): array
+    {
+        try {
+            $id = 0;
+            foreach ($this->getCsvRow() as $record) {
+                if ($id == 0) {
+                    $id++;
+                    continue;
+                }
+                if (!empty($record)) {
+                    $this->idMap[$id] = $record[$this->idColumn];
+                    $this->processConditions($id, $record);
+                    $this->processMatchers($id, $record);
+                }
+                $id++;
+            }
+
+            $this->parseMatches();
             return $this->generateResult();
         } catch (\Exception $e) {
             echo $e->getMessage();
@@ -36,31 +81,31 @@ class Processor
         return [];
     }
 
-    private function process(): void
-    {
-        $id = 0;
-        foreach ($this->getCsvRow() as $record) {
-            if ($id == 0) {
-                $id++;
-                continue;
-            }
-            if (!empty($record)) {
-                $this->idMap[$id] = $record[$this->idColumn];
-                $this->processMatchers($id, $record);
-            }
-            $id++;
-        }
-
-        $this->parseMatches();
-    }
-
     private function processMatchers(int $id, array $record): void
     {
         foreach ($this->matchers as $column => $matcher) {
             $value = $record[$column];
             if (trim($value)) {
-                $matcher->process($id, $value);
+                $matcher->process($id, $value, $record);
             }
+        }
+    }
+
+    public static function getConditionData(array $condition, array $record): array
+    {
+        $data = [];
+        foreach ($condition['columns'] as $columnId => $columnName) {
+            $data[$columnName] = $record[$columnId];
+        }
+
+        return $data;
+    }
+
+    private function processConditions(int $id, array $record): void
+    {
+        foreach (Processor::$conditions as $condition) {
+            $conditionData = Processor::getConditionData($condition, $record);
+            $condition['processor']->registerRow($id, $conditionData);
         }
     }
 
@@ -115,7 +160,7 @@ class Processor
             $zeroMatchCounter++;
             $totalCount++;
             $zeroMatchPair[] = $name;
-            if($zeroMatchCounter == 2) {
+            if ($zeroMatchCounter == 2) {
                 $this->pairs[] = [
                     'objects' => $zeroMatchPair,
                     'score' => 0
@@ -125,7 +170,7 @@ class Processor
             }
         }
 
-        return ['pairs'=> $this->pairs, 'avgScore' => round($totalScore / $totalCount)];
+        return ['pairs' => $this->pairs, 'avgScore' => round($totalScore / $totalCount)];
     }
 
     private function getPairs(): \Generator
@@ -167,7 +212,7 @@ class Processor
     private function validateColumn(string $column): int
     {
         if (!in_array($column, $this->headers)) {
-            throw new \Exception('$column does not exist in file');
+            throw new \Exception("$column does not exist in file");
         }
 
         return array_search($column, $this->headers);

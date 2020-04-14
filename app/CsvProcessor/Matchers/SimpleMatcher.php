@@ -1,5 +1,5 @@
 <?php
 namespace App\CsvProcessor\Matchers;
 
-class SimpleMatcher extends BaseMatcher implements MatcherInterface {
+class SimpleMatcher extends BaseMatcher{
 }

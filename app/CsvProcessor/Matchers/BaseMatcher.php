@@ -2,7 +2,9 @@
 
 namespace App\CsvProcessor\Matchers;
 
-abstract class BaseMatcher implements MatcherInterface
+use App\CsvProcessor\Processor;
+
+abstract class BaseMatcher
 {
     protected array $matches = [];
     protected string $columnName;
@@ -15,10 +17,30 @@ abstract class BaseMatcher implements MatcherInterface
         $this->score = $score;
     }
 
-    protected function createPair(int $id1, int $id2): void
+    private function getConditionData(array $condition, array $record): array
     {
-        $id = $id1 < $id2 ? $id1 . '_' . $id2 : $id2 . '_' . $id1;
-        $this->matches[] = $id;
+        $data = [];
+        foreach ($condition['columns'] as $columnId => $columnName) {
+            $data[$columnName] = $record[$columnId];
+        }
+
+        return $data;
+    }
+
+    protected function createPair(int $id, int $withId, array $row): void
+    {
+        $pairAllowed = true;
+        foreach (Processor::$conditions as $condition) {
+            $conditionData = Processor::getConditionData($condition, $row);
+            if (!$condition['processor']->pairAllowed($withId, $conditionData)) {
+                $pairAllowed = false;
+                break;
+            }
+        }
+        if ($pairAllowed) {
+            $match_id = $id < $withId ? $id . '_' . $withId : $withId . '_' . $id;
+            $this->matches[] = $match_id;
+        }
     }
 
     public function getColumnName()
@@ -26,9 +48,9 @@ abstract class BaseMatcher implements MatcherInterface
         return $this->columnName;
     }
 
-    public function process(int $id, string $value)
+    public function process(int $id, string $value, array $row)
     {
-        $this->processValue($id, $value);
+        $this->processValue($id, $value, $row);
 
         if (!$this->map[$value]) {
             $this->map[$value] = [];
@@ -36,11 +58,11 @@ abstract class BaseMatcher implements MatcherInterface
         $this->map[$value][] = $id;
     }
 
-    protected function processValue(int $id, string $value)
+    protected function processValue(int $id, string $value, array $row)
     {
         if ($this->map[$value]) {
             foreach ($this->getValuesMap($value) as $pair) {
-                $this->createPair($id, $pair);
+                $this->createPair($id, $pair, $row);
             }
         }
     }
@@ -54,7 +76,7 @@ abstract class BaseMatcher implements MatcherInterface
 
     public function getMatches(): \Generator
     {
-        foreach($this->matches as $key => $value) {
+        foreach ($this->matches as $key => $value) {
             yield $key => $value;
         }
     }
